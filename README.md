@@ -50,7 +50,6 @@ java -jar target\<your jar>
 * You will now see your fully functioning application on 8080
 
 # TODO
-* Access token only lasts 15 minutes, refresh token lasts 1 year.
 * Remember to have a leeway setting for refresh
 * Think about moving the access/refresh pair store to REDIS instead of Maria
 * Create a new filter for the refresh process, if a user passes refresh then give ROLE_REFRESH_TOKEN and only allow users with that role to refresh

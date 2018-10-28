@@ -1,5 +1,6 @@
 package com.bradf.springreact.controller;
 
+import com.bradf.springreact.config.JwtConfig;
 import com.bradf.springreact.exception.AppException;
 import com.bradf.springreact.exception.BadRequestException;
 import com.bradf.springreact.model.RefreshToken;
@@ -30,7 +31,6 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import javax.validation.Valid;
 import java.net.URI;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Optional;
 
@@ -49,6 +49,8 @@ public class AuthenticationController {
     private final PasswordEncoder passwordEncoder;
 
     private final JwtTokenProvider tokenProvider;
+
+    private final JwtConfig jwtConfig;
 
     @PostMapping("/signin")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
@@ -79,7 +81,7 @@ public class AuthenticationController {
         refresh.setUser(this.userRepository.getOne(userPrincipal.getId()));
 
         //TODO: Use clock injected.
-        Instant expirationDateTime = Instant.now().plus(360, ChronoUnit.DAYS);
+        Instant expirationDateTime = Instant.now().plus(this.jwtConfig.getRefreshExpiration());
         refresh.setExpirationDateTime(expirationDateTime);
 
         // TODO: Beef this up to look by device and other info potentially.
