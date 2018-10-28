@@ -52,7 +52,32 @@ public class JwtTokenProvider {
             logger.error("Invalid JWT token");
         } catch (ExpiredJwtException ex) {
             logger.error("Expired JWT token");
-        } catch (UnsupportedJwtException ex) {
+        } catch (UnsupportedJwtException ex) { //TODO: Toss last two possibly
+            logger.error("Unsupported JWT token");
+        } catch (IllegalArgumentException ex) {
+            logger.error("JWT claims string is empty.");
+        }
+        return false;
+    }
+
+    public boolean isTokenValidForRefresh(String authToken) {
+        try {
+            Date currentDate = new Date();
+            Claims claims = Jwts.parser().setSigningKey(this.jwtConfig.getSecret()).parseClaimsJws(authToken).getBody();
+            //TODO: Clock
+            if((claims.getExpiration().getTime() - currentDate.getTime()) < this.jwtConfig.getRefreshLeeway().toMillis()){
+                return true;
+            } else {
+                logger.error("Trying to refresh before the token is expired and outside of the leeway window.");
+                return false;
+            }
+        } catch (SignatureException ex) {
+            logger.error("Invalid JWT signature");
+        } catch (MalformedJwtException ex) {
+            logger.error("Invalid JWT token");
+        } catch (ExpiredJwtException ex) {
+            return true;
+        } catch (UnsupportedJwtException ex) {//TODO: Toss last two possibly
             logger.error("Unsupported JWT token");
         } catch (IllegalArgumentException ex) {
             logger.error("JWT claims string is empty.");

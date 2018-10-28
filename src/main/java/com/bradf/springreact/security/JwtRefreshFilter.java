@@ -2,9 +2,8 @@ package com.bradf.springreact.security;
 
 import com.bradf.springreact.config.JwtConfig;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -16,11 +15,12 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Collections;
 
 @RequiredArgsConstructor
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
-    private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
-    private final JwtTokenProvider tokenProvider;
+public class JwtRefreshFilter extends OncePerRequestFilter {
+
+    private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService customUserDetailsService;
     private final JwtConfig jwtConfig;
 
@@ -28,18 +28,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         try {
             String jwt = getJwtFromRequest(request);
-            //TODO: Check for token in the database if not there invalid.
 
+            // TODO: Cleanup and add to validation
             // 1. Valid JWT Sig
             // 2. Valid JWT Token
-            // 3. Token Not Expired
+            // 3. Token Expired or within Leeway
             // 4. Token In the Database
 
-            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
-                Long userId = tokenProvider.getUserIdFromJWT(jwt);
+            if(StringUtils.hasText(jwt) && jwtTokenProvider.isTokenValidForRefresh(jwt)){
+                Long userId = this.jwtTokenProvider.getUserIdFromJWT(jwt);
 
-                UserDetails userDetails = customUserDetailsService.loadUserById(userId);
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                UserDetails userDetails = this.customUserDetailsService.loadUserById(userId);
+
+                // Only give a special system role that allows refresh
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userDetails, null, Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + this.jwtConfig.getRefreshSystemRole())));
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -47,7 +49,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (Exception ex) {
             logger.error("Could not set user authentication in security context", ex);
         }
-
         filterChain.doFilter(request, response);
     }
 
@@ -61,8 +62,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        //Do not filter refresh requests
+        // Only filter refresh requests
         String path = request.getPathInfo();
-        return path.startsWith(this.jwtConfig.getRefreshPath());
+        return !path.startsWith(this.jwtConfig.getRefreshPath());
     }
 }

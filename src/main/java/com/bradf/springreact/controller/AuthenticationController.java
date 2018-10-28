@@ -22,10 +22,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.validation.Valid;
@@ -124,12 +121,14 @@ public class AuthenticationController {
         return ResponseEntity.created(location).body(new ApiResponse(true, "User registered successfully"));
     }
 
-    //TODO: Protect with special role
-    //TODO: New filter for expired token.
+    // This mapping is important and is linked to the configuration property(application.jwt.refreshPath).  I tried to make this dynamic and failed
     @PostMapping("/refresh")
-    @PreAuthorize("hasRole('USER')")
-    public ResponseEntity<?> refreshAccessToken(@Valid @RequestBody RefreshTokenRequest refreshTokenRequest) {
-        Optional<RefreshToken> optionalRefreshToken = this.refreshTokenRepository.findByAccessTokenIs(refreshTokenRequest.getAccessToken());
+    @PreAuthorize("hasRole(@jwtConfig.refreshSystemRole)")
+    public ResponseEntity<?> refreshAccessToken(@RequestHeader("Authorization") String authHeader) {
+        // Assume proper header since got here already
+        String accessToken = authHeader.substring(7);
+
+        Optional<RefreshToken> optionalRefreshToken = this.refreshTokenRepository.findByAccessTokenIs(accessToken);
         if(optionalRefreshToken.isPresent()){
             RefreshToken existing = optionalRefreshToken.get();
             RefreshToken newRefresh = new RefreshToken();

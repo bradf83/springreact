@@ -1,8 +1,7 @@
 package com.bradf.springreact.config;
 
-import com.bradf.springreact.security.CustomUserDetailsService;
-import com.bradf.springreact.security.JwtAuthenticationEntryPoint;
-import com.bradf.springreact.security.JwtAuthenticationFilter;
+import com.bradf.springreact.security.*;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,17 +25,22 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
         jsr250Enabled = true,
         prePostEnabled = true
 )
+@RequiredArgsConstructor
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
-    @Autowired
-    CustomUserDetailsService customUserDetailsService;
 
-    @Autowired
-    private JwtAuthenticationEntryPoint unauthorizedHandler;
+    private final CustomUserDetailsService customUserDetailsService;
+    private final JwtAuthenticationEntryPoint unauthorizedHandler;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final JwtConfig jwtConfig;
 
-    //TODO: Can this be done better
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
-        return new JwtAuthenticationFilter();
+        return new JwtAuthenticationFilter(this.jwtTokenProvider, this.customUserDetailsService, this.jwtConfig);
+    }
+
+    @Bean
+    public JwtRefreshFilter jwtRefreshFilter(){
+        return new JwtRefreshFilter(this.jwtTokenProvider, this.customUserDetailsService, this.jwtConfig);
     }
 
     @Override
@@ -88,6 +92,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
         // Add our custom JWT security filter
         http.addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(jwtRefreshFilter(), UsernamePasswordAuthenticationFilter.class);
 
     }
 }

@@ -50,9 +50,7 @@ java -jar target\<your jar>
 * You will now see your fully functioning application on 8080
 
 # TODO
-* Remember to have a leeway setting for refresh
 * Think about moving the access/refresh pair store to REDIS instead of Maria
-* Create a new filter for the refresh process, if a user passes refresh then give ROLE_REFRESH_TOKEN and only allow users with that role to refresh
 * Logout to destroy refresh token
 * Refresh token by access device, possibly manage tokens
 * Getting Started - Node, Yarn, JDK
@@ -60,6 +58,8 @@ java -jar target\<your jar>
   * Currently have an issue with yarn test but once it's commented works fine
 * Try using Spring REST crud out of the box
 * Time Travel, Injectable Clock, Diligence on date\time usage
+* Document workflows
+* Cleanup README!
 
 # Credits
 Based partially on the tutorials and strategies found below:
