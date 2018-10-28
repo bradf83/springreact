@@ -17,6 +17,8 @@ public class CustomUserDetailsService implements UserDetailsService {
         this.userRepository = userRepository;
     }
 
+    //TODO: User could be inactive.
+
     @Override
     @Transactional
     public UserDetails loadUserByUsername(String usernameOrEmail)

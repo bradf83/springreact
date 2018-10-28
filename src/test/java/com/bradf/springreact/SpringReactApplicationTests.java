@@ -1,9 +1,6 @@
 package com.bradf.springreact;
 
-import com.bradf.springreact.payload.JwtAuthenticationResponse;
-import com.bradf.springreact.payload.LoginRequest;
-import com.bradf.springreact.payload.ProtectedRequest;
-import com.bradf.springreact.payload.SignUpRequest;
+import com.bradf.springreact.payload.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -11,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -23,6 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 public class SpringReactApplicationTests {
 
     @Autowired
@@ -30,9 +29,6 @@ public class SpringReactApplicationTests {
 
     @Autowired
     private ObjectMapper objectMapper;
-    //TODO: Test expiring JWT
-    //TODO: Implement Refresh token and test it
-
 
     @Test
     public void whenSigningUpFailsBecauseTheEmailIsMissing() throws Exception {
@@ -119,6 +115,63 @@ public class SpringReactApplicationTests {
 
     }
 
+    @Test
+    public void whenLoggedInAndRefreshingAccessToken() throws Exception {
+        JwtAuthenticationResponse response = this.login();
+        RefreshTokenRequest refreshTokenRequest = new RefreshTokenRequest();
+        refreshTokenRequest.setAccessToken(response.getAccessToken());
+        this.mockMvc.perform(post("/api/auth/refresh")
+                .header("Authorization", "Bearer " + response.getAccessToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(this.objectMapper.writeValueAsString(refreshTokenRequest)))
+                .andDo(print())
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    public void whenAccessingProtectedResourceAfterRefreshingToken() throws Exception {
+        JwtAuthenticationResponse response = this.login();
+        JwtAuthenticationResponse refresh = this.refreshAccessToken(response.getAccessToken());
+
+        ProtectedRequest protectedRequest = new ProtectedRequest("Some message");
+        // Request protected resource with acquired token
+        this.mockMvc.perform(post("/api/protected")
+                .header("Authorization", "Bearer " + refresh.getAccessToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(this.objectMapper.writeValueAsString(protectedRequest)))
+                .andDo(print())
+                .andExpect(status().isOk());
+    }
+
+    //TODO: Expect this to pass as currently expired access tokens cannot refresh access tokens
+    @Test
+    public void whenRefreshingAccessTokenAfterAccessTokenHasExpired() throws Exception {
+        JwtAuthenticationResponse response = this.login();
+        this.waitForTokenExpiry();
+
+        RefreshTokenRequest refreshTokenRequest = new RefreshTokenRequest();
+        refreshTokenRequest.setAccessToken(response.getAccessToken());
+        this.mockMvc.perform(post("/api/auth/refresh")
+                .header("Authorization", "Bearer " + response.getAccessToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(this.objectMapper.writeValueAsString(refreshTokenRequest)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    public void whenAccessingProtectedResourceWithExpiredAccessToken() throws Exception {
+        JwtAuthenticationResponse response = this.login();
+        this.waitForTokenExpiry();
+
+        ProtectedRequest protectedRequest = new ProtectedRequest("Some message");
+        // Request protected resource with acquired token
+        this.mockMvc.perform(post("/api/protected")
+                .header("Authorization", "Bearer " + response.getAccessToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(this.objectMapper.writeValueAsString(protectedRequest)))
+                .andExpect(status().isUnauthorized());
+    }
+
     /**
      * Login with a valid user and get a JWT Token
      * @return
@@ -137,6 +190,29 @@ public class SpringReactApplicationTests {
                 .andReturn();
 
         return this.objectMapper.readValue(result.getResponse().getContentAsString(), JwtAuthenticationResponse.class);
+    }
+
+    private JwtAuthenticationResponse refreshAccessToken(String accessToken) throws Exception {
+        RefreshTokenRequest refreshTokenRequest = new RefreshTokenRequest();
+        refreshTokenRequest.setAccessToken(accessToken);
+        MvcResult result = this.mockMvc.perform(post("/api/auth/refresh")
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(this.objectMapper.writeValueAsString(refreshTokenRequest)))
+                .andReturn();
+        return this.objectMapper.readValue(result.getResponse().getContentAsString(), JwtAuthenticationResponse.class);
+    }
+
+    /**
+     * A poor man's way of pushing time forward.  Will do for now.
+     * TODO: Implement injected system clock, fixed clock for system testing to allow for time travel.
+     */
+    private void waitForTokenExpiry(){
+        try {
+            Thread.sleep(6000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
 }

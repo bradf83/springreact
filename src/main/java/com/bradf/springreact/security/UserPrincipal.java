@@ -77,6 +77,8 @@ public class UserPrincipal implements UserDetails {
         return authorities;
     }
 
+    //TODO: Examine the following 4 methods, decide what to do in all cases.
+
     @Override
     public boolean isAccountNonExpired() {
         return true;
